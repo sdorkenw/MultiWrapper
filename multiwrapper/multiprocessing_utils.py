@@ -169,7 +169,7 @@ def _poll_running_subprocesses(processes, runtimes, path_to_script,
                 processes[i_p][3] = time.time()
 
                 logger.info("restarted process %d -- n(restarts) = %d" %
-                            (i_p, processes[i_p][2]))
+                            (p[1], processes[i_p][2]))
 
                 time.sleep(.01)  # Avoid OS hickups
 
