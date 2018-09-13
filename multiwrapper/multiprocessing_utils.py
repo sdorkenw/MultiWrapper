@@ -138,7 +138,7 @@ def _restart_subprocess(process_desc, path_to_script, path_to_storage,
 
     return process_desc
 
-def _poll_running_subprocesses(processes, runtimes, path_to_script,
+def _poll_running_subprocesses(process_descs, runtimes, path_to_script,
                                path_to_storage, path_to_src,  path_to_out,
                                path_to_err, min_n_meas, kill_tol_factor,
                                n_retries, logger):
@@ -147,12 +147,12 @@ def _poll_running_subprocesses(processes, runtimes, path_to_script,
     else:
         median_runtime = 0
 
-    for i_p, process_desc in enumerate(processes):
+    for i_p, process_desc in enumerate(process_descs):
         poll = process_desc[0].poll()
 
         if poll == 0 and os.path.exists(path_to_out):
             runtimes.append(time.time() - process_desc[3])
-            del (processes[i_p])
+            del (process_descs[i_p])
 
             logger.info("process %d finished after %.3fs" %
                         (process_desc[1], runtimes[-1]))
@@ -168,7 +168,7 @@ def _poll_running_subprocesses(processes, runtimes, path_to_script,
             logger.warning("process %d failed" % process_desc[1])
 
             if process_desc[2] >= n_retries:
-                del (processes[i_p])
+                del (process_descs[i_p])
 
                 logger.error("no retries left for process %d" % process_desc[1])
 
@@ -180,7 +180,7 @@ def _poll_running_subprocesses(processes, runtimes, path_to_script,
                                                    path_to_src,
                                                    path_to_out)
 
-                processes[i_p] = process_desc
+                process_descs[i_p] = process_desc
 
                 logger.info("restarted process %d -- n(restarts) = %d" %
                             (process_desc[1], process_desc[2]))
@@ -188,14 +188,14 @@ def _poll_running_subprocesses(processes, runtimes, path_to_script,
                 time.sleep(.01)  # Avoid OS hickups
 
         elif kill_tol_factor is not None and median_runtime > 0:
-            if processes[i_p][2] == 0:
+            if process_desc[2] == 0:
                 this_kill_tol_factor = 5
-            elif processes[i_p][2] == n_retries - 1:
+            elif process_desc[2] == n_retries - 1:
                 this_kill_tol_factor = kill_tol_factor * 20
             else:
                 this_kill_tol_factor = kill_tol_factor
 
-            p_run_time = time.time() - processes[i_p][3]
+            p_run_time = time.time() - process_desc[3]
             if p_run_time > median_runtime * this_kill_tol_factor:
                 process_desc[0].kill()
                 print("\n\nKILLED PROCESS %d -- it was simply too slow... "
@@ -213,13 +213,13 @@ def _poll_running_subprocesses(processes, runtimes, path_to_script,
                                                    path_to_src,
                                                    path_to_out)
 
-                processes[i_p] = process_desc
+                process_descs[i_p] = process_desc
 
                 logger.info("restarted process %d -- n(restarts) = %d" %
                             (process_desc[1], process_desc[2]))
 
                 time.sleep(.01)  # Avoid OS hickups
-    return processes, runtimes
+    return process_descs, runtimes
 
 
 def multisubprocess_func(func, params, wait_delay_s=5, n_threads=1,
@@ -297,20 +297,20 @@ def multisubprocess_func(func, params, wait_delay_s=5, n_threads=1,
     process_descs = []
     runtimes = []
     for ii in range(len(params)):
-        while len(processes) >= n_threads:
-            processes, runtimes = _poll_running_subprocesses(processes,
-                                                             runtimes,
-                                                             path_to_script,
-                                                             path_to_storage,
-                                                             path_to_src,
-                                                             path_to_out,
-                                                             path_to_err,
-                                                             min_n_meas,
-                                                             kill_tol_factor,
-                                                             n_retries,
-                                                             logger)
+        while len(process_descs) >= n_threads:
+            process_descs, runtimes = _poll_running_subprocesses(process_descs,
+                                                                 runtimes,
+                                                                 path_to_script,
+                                                                 path_to_storage,
+                                                                 path_to_src,
+                                                                 path_to_out,
+                                                                 path_to_err,
+                                                                 min_n_meas,
+                                                                 kill_tol_factor,
+                                                                 n_retries,
+                                                                 logger)
 
-            if len(processes) >= n_threads:
+            if len(process_descs) >= n_threads:
                 time.sleep(wait_delay_s)
 
         p = _start_subprocess(ii, path_to_script, path_to_storage, path_to_src,
