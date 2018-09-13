@@ -143,9 +143,9 @@ def _poll_running_subprocesses(process_descs, runtimes, path_to_script,
                                path_to_err, min_n_meas, kill_tol_factor,
                                n_retries, logger):
     if len(runtimes) > min_n_meas:
-        median_runtime = np.median(runtimes)
+        perc90_runtime = np.percentile(runtimes, 90)
     else:
-        median_runtime = 0
+        perc90_runtime = 0
 
     for i_p, process_desc in enumerate(process_descs):
         poll = process_desc[0].poll()
@@ -187,25 +187,25 @@ def _poll_running_subprocesses(process_descs, runtimes, path_to_script,
 
                 time.sleep(.01)  # Avoid OS hickups
 
-        elif kill_tol_factor is not None and median_runtime > 0:
+        elif kill_tol_factor is not None and perc90_runtime > 0:
             if process_desc[2] == 0:
                 this_kill_tol_factor = 5
             elif process_desc[2] == n_retries - 1:
-                this_kill_tol_factor = kill_tol_factor * 20
+                this_kill_tol_factor = kill_tol_factor * 2
             else:
                 this_kill_tol_factor = kill_tol_factor
 
             p_run_time = time.time() - process_desc[3]
-            if p_run_time > median_runtime * this_kill_tol_factor:
+            if p_run_time > perc90_runtime * this_kill_tol_factor:
                 process_desc[0].kill()
                 print("\n\nKILLED PROCESS %d -- it was simply too slow... "
-                      "(.%3fs), median is %.3fs -- %s\n\n" %
-                      (p_run_time, median_runtime, process_desc[1],
+                      "(%.3fs), 90th percentile is %.3fs -- %s\n\n" %
+                      (p_run_time, perc90_runtime, process_desc[1],
                        path_to_storage))
 
                 logger.warning("killed process %d -- (.%3fs), "
-                               "median is %.3fs" % (process_desc[1], p_run_time,
-                                                    median_runtime))
+                               "90th percentile is %.3fs" %
+                               (process_desc[1], p_run_time, perc90_runtime))
 
                 process_desc = _restart_subprocess(process_desc,
                                                    path_to_script,
@@ -290,9 +290,10 @@ def multisubprocess_func(func, params, wait_delay_s=5, n_threads=1,
 
     logger.info("Parameters: wait_delay_s={}, n_threads={},  n_retries={},  "
                 "kill_tol_factor={},  suffix={}, package_name={}, "
-                "min_n_meas={}".format(wait_delay_s, n_threads, n_retries,
-                                       kill_tol_factor, suffix, package_name,
-                                       min_n_meas))
+                "min_n_meas={}, n_jobs={}".format(wait_delay_s, n_threads,
+                                                  n_retries, kill_tol_factor,
+                                                  suffix, package_name,
+                                                  min_n_meas, len(params)))
 
     process_descs = []
     runtimes = []
